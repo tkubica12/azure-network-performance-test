@@ -1,0 +1,785 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "password": {
+            "type": "securestring",
+            "metadata": {
+                "description": "VM password"
+            }
+        },
+        "primaryRegion": {
+            "type": "string",
+            "metadata": {
+                "description": "Primary region for test"
+            },
+            "defaultValue": "westeurope"
+        },
+        "secondaryRegion": {
+            "type": "string",
+            "metadata": {
+                "description": "Secondary region for test"
+            },
+            "defaultValue": "northeurope"
+        },
+        "proximityTest": {
+            "type": "bool",
+            "metadata": {
+                "description": "Deploy VM for proximity placement group test"
+            },
+            "defaultValue": true
+        },
+        "sameZoneTest": {
+            "type": "bool",
+            "metadata": {
+                "description": "Deploy VM for the same availability zone group test"
+            },
+            "defaultValue": true
+        },
+        "differentZoneTest": {
+            "type": "bool",
+            "metadata": {
+                "description": "Deploy VM for different availability zone group test"
+            },
+            "defaultValue": true
+        },
+        "differentRegionTest": {
+            "type": "bool",
+            "metadata": {
+                "description": "Deploy VM for region test"
+            },
+            "defaultValue": true
+        }
+    },
+    "variables": {
+        "scriptLocation": "https://raw.githubusercontent.com/azurecz/azuretechacademy-hybridit-labs-day1/master/network-performance/install.sh",
+        "vmSize": "Standard_D16s_v3"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2018-12-01",
+            "name": "r1-z1-pg1-vm01-ip",
+            "location": "[parameters('primaryRegion')]",
+            "zones": [
+                "1"
+            ],
+            "sku": {
+                "name": "Basic",
+                "tier": "Regional"
+            },
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Dynamic"
+            }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "condition": "[parameters('proximityTest')]",
+            "apiVersion": "2018-12-01",
+            "name": "r1-z1-pg1-vm02-ip",
+            "location": "[parameters('primaryRegion')]",
+            "zones": [
+                "1"
+            ],
+            "sku": {
+                "name": "Basic",
+                "tier": "Regional"
+            },
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Dynamic"
+            }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "condition": "[parameters('sameZoneTest')]",
+            "apiVersion": "2018-12-01",
+            "name": "r1-z1-vm-ip",
+            "location": "[parameters('primaryRegion')]",
+            "zones": [
+                "1"
+            ],
+            "sku": {
+                "name": "Basic",
+                "tier": "Regional"
+            },
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Dynamic"
+            }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "condition": "[parameters('differentZoneTest')]",
+            "apiVersion": "2018-12-01",
+            "name": "r1-z2-vm-ip",
+            "location": "[parameters('primaryRegion')]",
+            "zones": [
+                "2"
+            ],
+            "sku": {
+                "name": "Basic",
+                "tier": "Regional"
+            },
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Dynamic"
+            }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "condition": "[parameters('differentRegionTest')]",
+            "apiVersion": "2018-12-01",
+            "name": "r2-vm-ip",
+            "location": "[parameters('secondaryRegion')]",
+            "sku": {
+                "name": "Basic",
+                "tier": "Regional"
+            },
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Dynamic"
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2018-12-01",
+            "name": "vnet",
+            "location": "[parameters('primaryRegion')]",
+            "properties": {
+                "provisioningState": "Succeeded",
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "subnet",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/24"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2018-12-01",
+            "name": "secondaryvnet",
+            "location": "[parameters('secondaryRegion')]",
+            "properties": {
+                "provisioningState": "Succeeded",
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.1.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "subnet",
+                        "properties": {
+                            "addressPrefix": "10.1.0.0/24"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+            "condition": "[parameters('differentRegionTest')]",
+            "dependsOn": [
+                "vnet",
+                "secondaryvnet"
+            ],
+            "name": "vnet/peerconnection",
+            "apiVersion": "2018-08-01",
+            "properties": {
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "allowGatewayTransit": false,
+                "useRemoteGateways": false,
+                "remoteVirtualNetwork": {
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'secondaryvnet')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+            "condition": "[parameters('differentRegionTest')]",
+            "dependsOn": [
+                "vnet",
+                "secondaryvnet"
+            ],
+            "name": "secondaryvnet/peerconnection",
+            "apiVersion": "2018-08-01",
+            "properties": {
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "allowGatewayTransit": false,
+                "useRemoteGateways": false,
+                "remoteVirtualNetwork": {
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet')]"
+                }
+            }
+        },
+        {
+            "apiVersion": "2018-04-01",
+            "type": "Microsoft.Compute/proximityPlacementGroups",
+            "name": "pg1",
+            "location": "[parameters('primaryRegion')]"
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2018-10-01",
+            "name": "r1-z1-pg1-vm01",
+            "location": "[parameters('primaryRegion')]",
+            "dependsOn": [
+                "vnet",
+                "r1-z1-pg1-vm01-nic",
+                "pg1"
+            ],
+            "zones": [
+                "1"
+            ],
+            "properties": {
+                "proximityPlacementGroup": {
+                    "id": "[resourceId('Microsoft.Compute/proximityPlacementGroups', 'pg1')]"
+                },
+                "hardwareProfile": {
+                    "vmSize": "[variables('vmSize')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "osType": "Linux",
+                        "createOption": "FromImage",
+                        "caching": "ReadWrite",
+                        "diskSizeGB": 30
+                    },
+                    "dataDisks": []
+                },
+                "osProfile": {
+                    "computerName": "r1-z1-pg1-vm01",
+                    "adminUsername": "net",
+                    "adminPassword": "[parameters('password')]",
+                    "linuxConfiguration": {
+                        "disablePasswordAuthentication": false,
+                        "provisionVMAgent": true
+                    },
+                    "secrets": [],
+                    "allowExtensionOperations": true
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', 'r1-z1-pg1-vm01-nic')]"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "condition": "[parameters('proximityTest')]",
+            "apiVersion": "2018-10-01",
+            "name": "r1-z1-pg1-vm02",
+            "location": "[parameters('primaryRegion')]",
+            "dependsOn": [
+                "vnet",
+                "r1-z1-pg1-vm02-nic",
+                "pg1"
+            ],
+            "zones": [
+                "1"
+            ],
+            "properties": {
+                "proximityPlacementGroup": {
+                    "id": "[resourceId('Microsoft.Compute/proximityPlacementGroups', 'pg1')]"
+                },
+                "hardwareProfile": {
+                    "vmSize": "[variables('vmSize')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "osType": "Linux",
+                        "createOption": "FromImage",
+                        "caching": "ReadWrite",
+                        "diskSizeGB": 30
+                    },
+                    "dataDisks": []
+                },
+                "osProfile": {
+                    "computerName": "r1-z1-pg1-vm02",
+                    "adminUsername": "net",
+                    "adminPassword": "[parameters('password')]",
+                    "linuxConfiguration": {
+                        "disablePasswordAuthentication": false,
+                        "provisionVMAgent": true
+                    },
+                    "secrets": [],
+                    "allowExtensionOperations": true
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', 'r1-z1-pg1-vm02-nic')]"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "condition": "[parameters('sameZoneTest')]",
+            "apiVersion": "2018-10-01",
+            "name": "r1-z1-vm",
+            "location": "[parameters('primaryRegion')]",
+            "dependsOn": [
+                "vnet",
+                "r1-z1-vm-nic"
+            ],
+            "zones": [
+                "1"
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[variables('vmSize')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "osType": "Linux",
+                        "createOption": "FromImage",
+                        "caching": "ReadWrite",
+                        "diskSizeGB": 30
+                    },
+                    "dataDisks": []
+                },
+                "osProfile": {
+                    "computerName": "r1-z1-vm",
+                    "adminUsername": "net",
+                    "adminPassword": "[parameters('password')]",
+                    "linuxConfiguration": {
+                        "disablePasswordAuthentication": false,
+                        "provisionVMAgent": true
+                    },
+                    "secrets": [],
+                    "allowExtensionOperations": true
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', 'r1-z1-vm-nic')]"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "condition": "[parameters('differentZoneTest')]",
+            "apiVersion": "2018-10-01",
+            "name": "r1-z2-vm",
+            "location": "[parameters('primaryRegion')]",
+            "dependsOn": [
+                "vnet",
+                "r1-z2-vm-nic"
+            ],
+            "zones": [
+                "2"
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[variables('vmSize')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "osType": "Linux",
+                        "createOption": "FromImage",
+                        "caching": "ReadWrite",
+                        "diskSizeGB": 30
+                    },
+                    "dataDisks": []
+                },
+                "osProfile": {
+                    "computerName": "r1-z2-vm",
+                    "adminUsername": "net",
+                    "adminPassword": "[parameters('password')]",
+                    "linuxConfiguration": {
+                        "disablePasswordAuthentication": false,
+                        "provisionVMAgent": true
+                    },
+                    "secrets": [],
+                    "allowExtensionOperations": true
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', 'r1-z2-vm-nic')]"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "condition": "[parameters('differentRegionTest')]",
+            "apiVersion": "2018-10-01",
+            "name": "r2-vm",
+            "location": "[parameters('secondaryRegion')]",
+            "dependsOn": [
+                "secondaryvnet",
+                "r2-vm-nic"
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[variables('vmSize')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "osType": "Linux",
+                        "createOption": "FromImage",
+                        "caching": "ReadWrite",
+                        "diskSizeGB": 30
+                    },
+                    "dataDisks": []
+                },
+                "osProfile": {
+                    "computerName": "r2-vm",
+                    "adminUsername": "net",
+                    "adminPassword": "[parameters('password')]",
+                    "linuxConfiguration": {
+                        "disablePasswordAuthentication": false,
+                        "provisionVMAgent": true
+                    },
+                    "secrets": [],
+                    "allowExtensionOperations": true
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', 'r2-vm-nic')]"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2018-12-01",
+            "name": "r1-z1-pg1-vm01-nic",
+            "location": "[parameters('primaryRegion')]",
+            "dependsOn": [
+                "vnet",
+                "r1-z1-pg1-vm01-ip"
+            ],
+            "properties": {
+                "provisioningState": "Succeeded",
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig",
+                        "properties": {
+                            "privateIPAddress": "10.0.0.4",
+                            "privateIPAllocationMethod": "Static",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'r1-z1-pg1-vm01-ip')]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet', 'subnet')]"
+                            },
+                            "primary": true,
+                            "privateIPAddressVersion": "IPv4"
+                        }
+                    }
+                ],
+                "enableAcceleratedNetworking": true,
+                "enableIPForwarding": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "condition": "[parameters('proximityTest')]",
+            "apiVersion": "2018-12-01",
+            "name": "r1-z1-pg1-vm02-nic",
+            "location": "[parameters('primaryRegion')]",
+            "dependsOn": [
+                "vnet",
+                "r1-z1-pg1-vm02-ip"
+            ],
+            "properties": {
+                "provisioningState": "Succeeded",
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig",
+                        "properties": {
+                            "privateIPAddress": "10.0.0.5",
+                            "privateIPAllocationMethod": "Static",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'r1-z1-pg1-vm02-ip')]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet', 'subnet')]"
+                            },
+                            "primary": true,
+                            "privateIPAddressVersion": "IPv4"
+                        }
+                    }
+                ],
+                "enableAcceleratedNetworking": true,
+                "enableIPForwarding": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "condition": "[parameters('sameZoneTest')]",
+            "apiVersion": "2018-12-01",
+            "name": "r1-z1-vm-nic",
+            "location": "[parameters('primaryRegion')]",
+            "dependsOn": [
+                "vnet",
+                "r1-z1-vm-ip"
+            ],
+            "properties": {
+                "provisioningState": "Succeeded",
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig",
+                        "properties": {
+                            "privateIPAddress": "10.0.0.6",
+                            "privateIPAllocationMethod": "Static",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'r1-z1-vm-ip')]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet', 'subnet')]"
+                            },
+                            "primary": true,
+                            "privateIPAddressVersion": "IPv4"
+                        }
+                    }
+                ],
+                "enableAcceleratedNetworking": true,
+                "enableIPForwarding": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "condition": "[parameters('differentZoneTest')]",
+            "apiVersion": "2018-12-01",
+            "name": "r1-z2-vm-nic",
+            "location": "[parameters('primaryRegion')]",
+            "dependsOn": [
+                "vnet",
+                "r1-z2-vm-ip"
+            ],
+            "properties": {
+                "provisioningState": "Succeeded",
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig",
+                        "properties": {
+                            "privateIPAddress": "10.0.0.7",
+                            "privateIPAllocationMethod": "Static",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'r1-z2-vm-ip')]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet', 'subnet')]"
+                            },
+                            "primary": true,
+                            "privateIPAddressVersion": "IPv4"
+                        }
+                    }
+                ],
+                "enableAcceleratedNetworking": true,
+                "enableIPForwarding": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "condition": "[parameters('differentRegionTest')]",
+            "apiVersion": "2018-12-01",
+            "name": "r2-vm-nic",
+            "location": "[parameters('secondaryRegion')]",
+            "dependsOn": [
+                "secondaryvnet",
+                "r2-vm-ip"
+            ],
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig",
+                        "properties": {
+                            "privateIPAddress": "10.1.0.4",
+                            "privateIPAllocationMethod": "Static",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'r2-vm-ip')]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'secondaryvnet', 'subnet')]"
+                            },
+                            "primary": true,
+                            "privateIPAddressVersion": "IPv4"
+                        }
+                    }
+                ],
+                "enableAcceleratedNetworking": true,
+                "enableIPForwarding": false
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "name": "r1-z1-pg1-vm01/script",
+            "location": "[parameters('primaryRegion')]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [
+                "r1-z1-pg1-vm01"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.0",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "skipDos2Unix": false
+                },
+                "protectedSettings": {
+                    "commandToExecute": "sudo ./install.sh",
+                    "fileUris": [
+                        "[variables('scriptLocation')]"
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "condition": "[parameters('proximityTest')]",
+            "name": "r1-z1-pg1-vm02/script",
+            "location": "[parameters('primaryRegion')]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [
+                "r1-z1-pg1-vm02"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.0",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "skipDos2Unix": false
+                },
+                "protectedSettings": {
+                    "commandToExecute": "sudo ./install.sh",
+                    "fileUris": [
+                        "[variables('scriptLocation')]"
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "condition": "[parameters('sameZoneTest')]",
+            "name": "r1-z1-vm/script",
+            "location": "[parameters('primaryRegion')]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [
+                "r1-z1-vm"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.0",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "skipDos2Unix": false
+                },
+                "protectedSettings": {
+                    "commandToExecute": "sudo ./install.sh",
+                    "fileUris": [
+                        "[variables('scriptLocation')]"
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "condition": "[parameters('differentZoneTest')]",
+            "name": "r1-z2-vm/script",
+            "location": "[parameters('primaryRegion')]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [
+                "r1-z2-vm"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.0",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "skipDos2Unix": false
+                },
+                "protectedSettings": {
+                    "commandToExecute": "sudo ./install.sh",
+                    "fileUris": [
+                        "[variables('scriptLocation')]"
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "condition": "[parameters('differentRegionTest')]",
+            "name": "r2-vm/script",
+            "location": "[parameters('secondaryRegion')]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [
+                "r2-vm"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.0",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "skipDos2Unix": false
+                },
+                "protectedSettings": {
+                    "commandToExecute": "sudo ./install.sh",
+                    "fileUris": [
+                        "[variables('scriptLocation')]"
+                    ]
+                }
+            }
+        }
+    ]
+}
