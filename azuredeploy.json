@@ -52,7 +52,7 @@
         }
     },
     "variables": {
-        "scriptLocation": "https://raw.githubusercontent.com/azurecz/azuretechacademy-hybridit-labs-day1/master/network-performance/install.sh",
+        "scriptLocation": "https://github.com/tkubica12/azure-network-performance-test/raw/master/install.sh",
         "vmSize": "Standard_D16s_v3"
     },
     "resources": [
