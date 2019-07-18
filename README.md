@@ -31,6 +31,7 @@ az group deployment create -g netperf \
 ```
 
 To deploy via portal:
+
 [![Deploy to Azure](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazure.png)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fgithub.com%2Ftkubica12%2Fazure-network-performance-test%2Fraw%2Fmaster%2Fazuredeploy.json)
 
 # Test network performance
