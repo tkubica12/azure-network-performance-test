@@ -20,7 +20,7 @@ Deployment notes:
 * primary and secondary region is provided as parameter
 * by default full topology is created, but you can use boolean parameters to disable some tests
 
-To deploy:
+To deploy via CLI:
 ```bash
 az group create -n netperf -l westeurope
 az group deployment create -g netperf \
@@ -29,6 +29,9 @@ az group deployment create -g netperf \
     --parameters primaryRegion=westeurope \
     --parameters secondaryRegion=northeurope
 ```
+
+To deploy via portal:
+[![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/)
 
 # Test network performance
 Connect to r1-z1-pg1-vm01
